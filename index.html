@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<title>BOXED</title>
+<style>
+  html,body{margin:0;height:100%;background:#07080d;overflow:hidden;color:#c9d2e4;
+    font-family:Georgia,"Iowan Old Style","Source Han Serif SC","Noto Serif CJK SC","Songti SC",STSong,serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    touch-action:none;overscroll-behavior:none;}
+  canvas{touch-action:none;display:block;border-radius:14px;}
+  #ui{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 50% 28%,#111a2a 0,#090c14 36%,#07080d 72%);
+    z-index:9;text-align:center;padding:24px;overflow:auto;}
+  h1{font-size:34px;margin:0;letter-spacing:.5em;font-weight:500;
+     background:linear-gradient(90deg,#4fd6e8,#f0913f);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .sub{color:#5a6478;font-size:12px;letter-spacing:.2em;margin:6px 0 22px;}
+  p{margin:3px 0;font-size:13px;color:#8792a8;line-height:1.9;max-width:430px;}
+  .cy{color:#4fd6e8}.og{color:#f0913f}
+
+  #songs{display:flex;flex-direction:column;gap:8px;margin:22px 0 4px;width:100%;max-width:392px;}
+  .song{display:flex;align-items:center;gap:14px;padding:15px 18px;cursor:pointer;
+        background:#141a29;border-radius:11px;text-align:left;transition:background .12s;}
+  .song:hover{background:#1b2336;}
+  .song.on{background:linear-gradient(100deg,#17384a,#1d2740);}
+  .song .t{font-size:16.5px;color:#c9d2e4;font-style:italic;}
+  .song .a{font-size:11.5px;color:#6b7690;margin-top:2px;}
+  .song .meta{margin-left:auto;text-align:right;font-size:11px;color:#6b7690;line-height:1.7;}
+  .song.on .t{color:#7ee2f0;}
+
+  #go{padding:14px 48px;border:0;color:#07080d;border-radius:30px;font-size:15px;
+      cursor:pointer;letter-spacing:.2em;background:linear-gradient(100deg,#4fd6e8,#7ee2c8);}
+  #go:hover{filter:brightness(1.12);} #go:disabled{background:#222b3f;color:#5a6478;cursor:default;}
+  .ghost{padding:13px 22px;border:0;background:#222b3f;color:#a9b6cc;border-radius:30px;
+      font-size:13px;cursor:pointer;}
+  .ghost:hover{background:#2c3752;} .ghost:disabled{opacity:.45;cursor:default;}
+  #note{color:#4a5364;font-size:11px;margin-top:16px;}
+  #diag{display:none;color:#39435a;font-size:10px;margin-top:5px;font-family:Georgia,"Iowan Old Style","Source Han Serif SC","Noto Serif CJK SC","Songti SC",STSong,serif;}
+
+  #result{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;
+    justify-content:center;background:#07080df7;z-index:10;text-align:center;padding:24px;}
+  #result .rlabel{color:#4a5364;font-size:11px;letter-spacing:.32em;font-family:Georgia,"Iowan Old Style","Source Han Serif SC","Noto Serif CJK SC","Songti SC",STSong,serif;}
+  #r-rank{font-size:88px;line-height:1.05;font-weight:500;margin:2px 0 -4px;
+    background:linear-gradient(120deg,#4fd6e8,#f0913f);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  #r-score{font-size:27px;font-family:Georgia,"Iowan Old Style","Source Han Serif SC","Noto Serif CJK SC","Songti SC",STSong,serif;color:#c9d2e4;letter-spacing:.08em;}
+  #r-acc{font-size:14px;font-family:Georgia,"Iowan Old Style","Source Han Serif SC","Noto Serif CJK SC","Songti SC",STSong,serif;color:#8792a8;margin-top:3px;}
+  .rgrid{display:flex;gap:14px;margin-top:22px;}
+  .rgrid div{min-width:98px;padding:13px 8px;background:#141a29;border-radius:10px;
+    display:flex;flex-direction:column;gap:4px;}
+  .rgrid b{font-size:20px;font-family:Georgia,"Iowan Old Style","Source Han Serif SC","Noto Serif CJK SC","Songti SC",STSong,serif;font-weight:500;color:#c9d2e4;}
+  .rgrid span{font-size:9.5px;letter-spacing:.14em;color:#4a5364;font-family:Georgia,"Iowan Old Style","Source Han Serif SC","Noto Serif CJK SC","Songti SC",STSong,serif;}
+  .bad{color:#c86a6a}
+  #r-hint{margin-top:20px;font-size:11.5px;color:#5a6478;max-width:380px;line-height:1.8;}
+  #r-again{padding:14px 36px;border:0;color:#07080d;border-radius:30px;font-size:14px;
+    cursor:pointer;letter-spacing:.16em;background:linear-gradient(100deg,#4fd6e8,#7ee2c8);}
+  #r-again:hover{filter:brightness(1.12);}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="cv"></canvas></div>
+
+<div id="result">
+  <div class="rlabel" id="r-sec"></div>
+  <div id="r-rank">S</div>
+  <div id="r-score">0000000</div>
+  <div id="r-acc">0.00%</div>
+  <div class="rgrid">
+    <div><b class="cy" id="r-p">0</b><span>PERFECT</span></div>
+    <div><b class="og" id="r-g">0</b><span>GREAT</span></div>
+    <div><b class="bad" id="r-m">0</b><span>MISS</span></div>
+  </div>
+  <div class="rgrid" style="margin-top:2px">
+    <div><b id="r-combo">0</b><span>MAX COMBO</span></div>
+    <div><b id="r-err">0ms</b><span>平均误差</span></div>
+    <div><b id="r-sd">0ms</b><span>误差标准差</span></div>
+  </div>
+  <div id="r-hint"></div>
+  <div style="display:flex;gap:10px;margin-top:26px">
+    <button id="r-again">再 来 一 次</button>
+    <button id="r-menu" class="ghost">返回菜单</button>
+  </div>
+</div>
+
+<div id="ui">
+  <h1>BOXED</h1>
+  <div class="sub">双手追光 · 把节拍打进盒子</div>
+  <p><b>两颗球，两只手，一首歌。</b><br>追上每一次撞墙，把节拍打成一场几何表演。</p>
+
+  <p style="margin-top:16px">圆盘缩到球那么大时按下：<span class="cy"><b>左手追青</b></span>，<span class="og"><b>右手追橙</b></span>。<br>
+     <span style="color:#d8dfec"><b>白色光圈亮起，就是双手一起落下。</b></span></p>
+
+  <p style="margin-top:12px;color:#66728a">别只是听见音乐。<br><b style="color:#929db2">让它在你手里发光。</b></p>
+  <div id="songs"></div>
+  <div style="margin-top:20px"><button id="go" disabled>准 备 中…</button></div>
+  <div id="note">正在准备音乐与谱面…</div>
+  <div id="diag">—</div>
+  <p style="margin-top:10px;color:#4a5364;font-size:11px;max-width:400px;line-height:1.7">
+    建议佩戴耳机 · 手机请关闭静音并调高媒体音量
+  </p>
+</div>
+
+<script>
+'use strict';
+//================== 常量 ==================
+const W=430, H=780;
+const PERFECT_RECORDING=new URLSearchParams(location.search).get('record')==='perfect';
+let   BS=372, BX=(W-BS)/2, BY=150;      // 盒子（正方形开口，按模式重算）
+const DEPTH=54;                          // 透视深度
+let   R=13;                              // 球半径
+
+const R_HIT=72;                          // 手机模式的空间判定半径
+const LEAD=0.85;                         // 预示环提前量（秒）
+const IGNORE_T=0.26;                     // 离任何该敲的时刻超过这么久，整个不判定（不算 MISS）
+const DOUBLE_T=0.03;                     // 两球落点相差不超过 30ms，视为双押
+
+// 中隔有厚度：青球撞左面、橙球撞右面，两侧落点永远隔着一个墙厚。
+// 取值保证「球心间距 > R_HIT」，即准确点在一个目标上时必然落在另一个的判定圈外。
+// 所以 R_HIT 变大时 DIV_D 必须跟着变大，两者是绑死的。
+const DIV_D  = 0.10;                     // 中隔半厚（归一化）
+const HALF   = 0.5 - DIV_D;              // 单舱可用宽度
+const GATE_T = 0.13;                     // 穿过闸门的时长（秒）
+const MERGE_PX = 26;                     // 兜底：仍然靠这么近的跨球音符合并成一次击打
+const ALLOW_CROSS_CHAMBER=false;          // 当前版本关闭所有换舱运动
+const mapX = (c,u) => c===0 ? u*HALF : 1-u*HALF;
+function layout(){ BS=404; BY=196; R=15; BX=(W-BS)/2; }
+layout();
+const W_PERFECT=0.042, W_GREAT=0.078, W_MISS=0.115;
+
+const CY='#4fd6e8', OG='#f0913f';
+const FONT='Georgia,"Iowan Old Style","Source Han Serif SC","Noto Serif CJK SC","Songti SC",STSong,serif';
+
+//================== 曲库 ==================
+// 每首歌自带段落表。px/py = 水平/垂直周期（拍）。py=null → 贴地板滚，只撞外墙与中隔。
+//
+// 约束：球撞中隔的时刻是水平周期的奇数倍，所以两球的 px 之比必须是奇数比
+// （1:1、1:3、3:1…）否则永远碰不到一起，换手就无从发生。
+// 因此两手之间的复合节奏改由垂直周期 py 承担。
+//
+// bpm / offset 由 tools/ 下的脚本分析得出，见 README。
+const SONGS=[
+  {
+    id:'enchanted', title:'enchanted love', artist:'linear ring',
+    file:'audio/enchanted-love.mp3',
+    bpm:190.000, offset:0.2862, dur:130.74,
+    sections:[
+      {t:  0.29, n:'intro', a:[8,6], b:[8,12]},   // 无鼓前奏
+      {t: 20.50, n:'verse', a:[4,6], b:[4,8] },   // 鼓进来
+      {t: 40.71, n:'main',  a:[4,3], b:[4,8] },
+      {t: 65.97, n:'vary',  a:[4,6], b:[4,3] },   // 两手职责对调
+      {t: 81.13, n:'peak',  a:[2,4], b:[2,3] },   // 密度峰值，只有 5 秒
+      {t: 86.18, n:'fall',  a:[4,3], b:[4,6] },
+      {t:106.39, n:'outro', a:[8,6], b:[8,8] },
+    ],
+  },
+];
+
+let SONG=SONGS[0];
+let SPB=60/SONG.bpm, DUR=SONG.dur, SECTIONS=SONG.sections;
+function useSong(s){
+  SONG=s; SPB=60/s.bpm; DUR=s.dur; SECTIONS=s.sections;
+}
+const secEnd = i => i+1<SECTIONS.length ? SECTIONS[i+1].t : DUR;
+const secAt = t => { let s=0; for(let i=0;i<SECTIONS.length;i++) if(t>=SECTIONS[i].t) s=i; return s; };
+
+//================== 相位时间轴（保证运动全程连贯）==================
+// 每个球的每个轴是一维独立弹跳，用「相位」描述：位置 u = tri(φ)，φ 每拍增加 1/周期。
+// φ 为整数 ⇔ 球正贴在该轴的一面墙上（偶 = 外墙 / 天花板，奇 = 中隔 / 地板）。
+//
+// 关键：段落切换时**不重置相位**，而是把换周期推迟到下一次撞墙的瞬间才生效。
+// 于是位置连续（就在墙上），速度也只在撞墙时改变 —— 全曲一次瞬移都没有。
+const tri  = u  => { const m=((u%2)+2)%2; return 1-Math.abs(1-m); };
+const BT   = t  => (t-SECTIONS[0].t)/SPB;     // 秒 → 拍（全曲统一，不按段重置）
+const TSEC = bt => SECTIONS[0].t + bt*SPB;
+const endBt = () => BT(DUR);                  // 换歌后 DUR 会变，不能缓存成常量
+const nextInt = p => Math.ceil(p-1e-9);
+const nextOdd = p => { const k=Math.ceil(p-1e-9); return k%2===1?k:k+1; };
+
+let LEGS=[[[],[]],[[],[]]];       // LEGS[球][轴] = [{tb0, phi0, inv}]
+
+function buildLegs(){
+  LEGS=[[[],[]],[[],[]]];
+  for(let bi=0;bi<2;bi++) for(let ax=0;ax<2;ax++){
+    const legs=LEGS[bi][ax];
+    for(const sec of SECTIONS){
+      const p=(bi===0?sec.a:sec.b)[ax];
+      const inv = p ? 1/p : 0;                // inv=0 → 相位冻结，贴地板滚
+      const Tb  = BT(sec.t);
+      if(!legs.length){ legs.push({tb0:Tb, phi0:0, inv}); continue; }
+      const cur=legs[legs.length-1];
+      if(cur.inv===inv) continue;             // 周期没变，无需切换
+      const phiT = cur.phi0 + (Tb-cur.tb0)*cur.inv;
+      let phiS, tbS;
+      if(cur.inv===0){ phiS=cur.phi0; tbS=Tb; }          // 正在滚，随时能起步
+      else {
+        phiS = (inv===0) ? nextOdd(phiT)                 // 要停下必须停在地板上
+                         : nextInt(phiT);                // 普通换速，等下一次撞墙
+        tbS  = cur.tb0 + (phiS-cur.phi0)/cur.inv;
+      }
+      legs.push({tb0:tbS, phi0:phiS, inv});
+    }
+  }
+}
+function phiAt(legs,bt){
+  let L=legs[0];
+  for(const g of legs){ if(g.tb0<=bt+1e-9) L=g; else break; }
+  return L.phi0 + (bt-L.tb0)*L.inv;
+}
+// 该轴上所有撞墙时刻（拍）。odd=true 表示撞的是中隔 / 地板。
+function axisImpacts(legs){
+  const out=[];
+  for(let i=0;i<legs.length;i++){
+    const L=legs[i], until = i+1<legs.length ? legs[i+1].tb0 : endBt();
+    if(L.inv===0) continue;                   // 滚的时候不撞该轴的墙
+    for(let k=nextInt(L.phi0); ; k++){
+      const tb=L.tb0+(k-L.phi0)/L.inv;
+      if(tb > until-1e-9) break;              // 边界归下一条 leg，不重复
+      out.push({tb, odd: ((k%2)+2)%2===1});
+    }
+  }
+  return out;
+}
+
+//================== 中隔与换手 ==================
+// 两球同时贴在中隔上的那一刻，闸门开，互穿。位置和方向都连续。
+let SWAPS=[];
+const EXCURSION   = 8;    // 拍。穿过去之后待多久穿回来（2 小节）
+const EXC_MAX     = 2.5;  // 找不到正好 8 拍的回程点时，最多放宽到 8*2.5 拍
+const EPISODE_GAP = 64;   // 拍。两次交叉之间至少隔 16 小节
+
+// 一律成对生成（过去 + 回来），配不成对就整个不发生，
+// 保证球不会被永久留在对面 —— 青球始终「大部分时间在左」。
+function buildSwaps(){
+  SWAPS=[];
+  if(!ALLOW_CROSS_CHAMBER) return;
+  const div=[0,1].map(bi =>
+    axisImpacts(LEGS[bi][0]).filter(e=>e.odd).map(e=>TSEC(e.tb)));
+  const cand=[];
+  let j=0;
+  for(const ta of div[0]){                    // 两条中隔撞击序列求交集
+    while(j<div[1].length && div[1][j] < ta-0.012) j++;
+    if(j<div[1].length && Math.abs(div[1][j]-ta)<=0.012) cand.push(ta);
+  }
+  let lastEnd=-1e9;
+  for(const go of cand){
+    if(go < SECTIONS[0].t+1.5 || go-lastEnd < EPISODE_GAP*SPB) continue;
+    const back=cand.find(b=> b>=go+EXCURSION*SPB && b<=go+EXCURSION*EXC_MAX*SPB);
+    if(back===undefined) continue;            // 回不来就不放行
+    SWAPS.push(go,back); lastEnd=back;
+  }
+}
+function chamberOf(bi,t){                     // 0 = 左舱, 1 = 右舱
+  let n=0;
+  for(const s of SWAPS){ if(s<=t+1e-9) n++; else break; }
+  return (bi+n)%2;
+}
+
+//================== 位置与谱面 ==================
+function ballPos(bi,t){
+  if(authoredChart){
+    const arr=authoredChart.byBall[bi];
+    if(arr.length){
+      let hi=arr.findIndex(n=>n.t>=t);
+      if(hi<0) hi=arr.length-1;
+      if(hi===0) return [arr[0].nx,arr[0].ny];
+      const a=arr[hi-1], b=arr[hi], k=Math.max(0,Math.min(1,(t-a.t)/(b.t-a.t||1)));
+      return [a.nx+(b.nx-a.nx)*k, a.ny+(b.ny-a.ny)*k];
+    }
+  }
+  const bt=BT(t);
+  const u=tri(phiAt(LEGS[bi][0],bt));         // 0 = 本舱外墙, 1 = 中隔的本侧面
+  const v=tri(phiAt(LEGS[bi][1],bt));         // 0 = 天花板, 1 = 地板
+  const c=chamberOf(bi,t);
+  let x=mapX(c,u);
+  // 穿闸门：在 GATE_T 内从旧舱映射平滑过渡到新舱映射。
+  // 混合到一半时 x 恰好 = 0.5，也就是中隔正中 —— 看上去就是穿过去了。
+  for(const s of SWAPS){
+    if(t>=s-1e-9 && t<s+GATE_T){          // 容差必须和 chamberOf 一致，否则换舱早于过渡
+      const k=(t-s)/GATE_T;
+      x = mapX(1-c,u)*(1-k) + mapX(c,u)*k;
+      break;
+    }
+  }
+  return [x,v];
+}
+function buildNotes(){
+  if(authoredChart){
+    const out=authoredChart.byBall.map(arr=>arr.map(n=>({
+      t:n.t, nx:n.nx, ny:n.ny, twin:null, double:false, judged:false, res:0, err:0
+    })));
+    markDoubleNotes(out);
+    return out;
+  }
+  const out=[[],[]];
+  for(let bi=0;bi<2;bi++){
+    const ts=[...axisImpacts(LEGS[bi][0]), ...axisImpacts(LEGS[bi][1])]
+      .map(e=>TSEC(e.tb)).sort((a,b)=>a-b);
+    let last=-9;
+    for(const t of ts){
+      if(Math.abs(t-last)<1e-7) continue;      // 只合并数学上同时的角落双面碰撞，不限制音符间距
+      if(t>DUR) break;
+      last=t;
+      const [nx,ny]=ballPos(bi,t);
+      out[bi].push({t, nx, ny, twin:null, double:false, judged:false, res:0, err:0});
+    }
+  }
+  // 兜底：中隔厚度之后仍然重合/过近的跨球音符，配成一对，一次击打同时结算
+  for(const a of out[0]) for(const b of out[1]){
+    if(Math.abs(a.t-b.t)>DOUBLE_T) continue;
+    if(Math.hypot(px(a.nx)-px(b.nx), py(a.ny)-py(b.ny))<=MERGE_PX){ a.twin=b; b.twin=a; }
+  }
+  markDoubleNotes(out);
+  return out;
+}
+function markDoubleNotes(out){
+  let j=0;
+  for(const a of out[0]){
+    while(j<out[1].length && out[1][j].t<a.t-DOUBLE_T) j++;
+    for(let k=j;k<out[1].length&&out[1][k].t<=a.t+DOUBLE_T;k++){
+      a.double=true; out[1][k].double=true;
+    }
+  }
+}
+function nextWallHit(bi,t){                   // 预示线用：下一次撞墙的时刻
+  const arr=notes[bi];
+  for(let i=Math.max(0,cursor[bi]-2); i<arr.length; i++) if(arr[i].t>t) return arr[i].t;
+  return t;
+}
+
+//================== 音频 ==================
+let AC, master, recordingDest=null, buf=null, src=null, audioT0=0, startAt=0;
+let latency=0.0;                            // 玩家可调偏移
+
+function click(color,t){
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type='triangle'; o.frequency.setValueAtTime(color?1850:2450,t);
+  o.frequency.exponentialRampToValueAtTime(color?820:1120,t+0.035);
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.27,t+0.001);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.048);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+0.055);
+
+  const length=Math.ceil(AC.sampleRate*0.022), noise=AC.createBuffer(1,length,AC.sampleRate);
+  const samples=noise.getChannelData(0);
+  for(let i=0;i<length;i++) samples[i]=(Math.random()*2-1)*(1-i/length);
+  const n=AC.createBufferSource(), f=AC.createBiquadFilter(), ng=AC.createGain();
+  n.buffer=noise; f.type='highpass'; f.frequency.value=color?2300:3000;
+  ng.gain.setValueAtTime(0.13,t); ng.gain.exponentialRampToValueAtTime(0.0001,t+0.024);
+  n.connect(f); f.connect(ng); ng.connect(master); n.start(t); n.stop(t+0.026);
+}
+function thud(t){
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type='sine'; o.frequency.setValueAtTime(3200,t); o.frequency.exponentialRampToValueAtTime(1900,t+0.025);
+  g.gain.setValueAtTime(0.10,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.032);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+0.04);
+}
+
+//================== 状态 ==================
+let notes=[[],[]], cursor=[0,0];
+let authoredChart=null;                       // 设计者工具保存的逐音符人工谱
+let authoredCrossings=[];                     // 人工轨迹穿过中隔的时刻，用来同步开闸门
+let playing=false, startFrom=0;
+let score=0, combo=0, maxCombo=0, cnt={p:0,g:0,m:0}, errs=[];
+let flashes=[];     // 撞墙动效，由判定事件驱动（所以 MISS 天然没有动效）
+let pops=[];        // 判定文字
+let showTraj=true;
+
+const songTime = () => AC.currentTime - audioT0 + startFrom + latency;
+
+// editor.html 是独立的设计者工具。项目专用服务器提供局域网共享谱；不可用时
+// 回退到当前浏览器的 localStorage，再没有人工谱才使用周期生成逻辑。
+async function loadAuthoredChart(){
+  authoredChart=null;
+  authoredCrossings=[];
+  DUR=SONG.dur;
+  document.documentElement.dataset.chart='generated';
+  try{
+    let d=null;
+    try{
+      const response=await fetch(`/api/chart/${SONG.id}`,{cache:'no-store'});
+      if(response.ok) d=await response.json();
+    }catch(_){}
+    // GitHub Pages 等纯静态环境没有 API，直接读取随游戏发布的共享谱面。
+    if(!d) try{
+      const response=await fetch(`chart/shared/${SONG.id}.json`,{cache:'no-store'});
+      if(response.ok) d=await response.json();
+    }catch(_){}
+    if(!d){
+      const raw=localStorage.getItem(`boxed.chart.${SONG.id}.v1`);
+      if(raw) d=JSON.parse(raw);
+    }
+    if(!d) return;
+    if(d.version!==1 || d.song!==SONG.id || !Array.isArray(d.notes)) return;
+    if(Number.isFinite(d.duration)&&d.duration>SONG.offset) DUR=Math.min(SONG.dur,d.duration);
+    const wallXY=(w,p)=> w==='L'?[0,p] : w==='DL'?[0.5-DIV_D,p]
+      : w==='DR'?[0.5+DIV_D,p] : w==='R'?[1,p] : w==='T'?[p,0] : [p,1];
+    const byBall=[[],[]];
+    for(const n of d.notes){
+      if((n.ball!==0&&n.ball!==1)||!Number.isFinite(n.time)||!Number.isFinite(n.position)) continue;
+      if(n.time>=DUR+1e-7) continue;
+      const [nx,ny]=wallXY(n.wall,Math.max(0,Math.min(1,n.position)));
+      byBall[n.ball].push({t:n.time,nx,ny});
+    }
+    byBall.forEach(a=>a.sort((x,y)=>x.t-y.t));
+    authoredChart={byBall};
+    for(const arr of byBall) for(let i=1;i<arr.length;i++){
+      const a=arr[i-1],b=arr[i],da=a.nx-.5,db=b.nx-.5;
+      if(da*db<0){const k=(.5-a.nx)/(b.nx-a.nx);authoredCrossings.push(a.t+(b.t-a.t)*k)}
+    }
+    authoredCrossings.sort((a,b)=>a-b);
+    document.documentElement.dataset.chart='authored';
+  }catch(err){ console.warn('人工谱读取失败，已回退到自动谱：',err); }
+}
+
+//================== 判定 ==================
+function commit(bi,n,bd,isTwin){
+  n.judged=true; n.err=songTime()-n.t; errs.push(n.err);
+  if(bd<=W_PERFECT){ n.res=2; cnt.p++; score+=300; }
+  else if(bd<=W_GREAT){ n.res=1; cnt.g++; score+=150; }
+  else { n.res=1; cnt.g++; score+=80; }
+  combo++; maxCombo=Math.max(maxCombo,combo);
+  flashes.push({nx:n.nx, ny:n.ny, bi, res:n.res, t:performance.now()});
+  if(!isTwin){
+    const t=AC.currentTime; click(bi,t); if(bd<=W_PERFECT) thud(t);
+    pops.push({bi, txt: bd<=W_PERFECT?'PERFECT':'GREAT', good:true,
+               err:n.err, t:performance.now()});
+  }
+  // 落点重合的一对，点一次就同时结算（电脑模式有两个键，不需要）
+  if(n.twin && !n.twin.judged) commit(1-bi, n.twin, bd, true);
+}
+function whiff(bi){
+  combo=0; pops.push({bi, txt:'', good:false, err:0, t:performance.now()});
+}
+
+// 离最近一个待判音符还有多久（秒）。用来决定这一下要不要理会。
+function nearestGap(bi,now){
+  const arr=notes[bi];
+  let bd=1e9;
+  for(let i=Math.max(0,cursor[bi]-6); i<arr.length; i++){
+    const d=arr[i].t-now;
+    if(d>IGNORE_T) break;
+    if(arr[i].judged) continue;
+    if(Math.abs(d)<bd) bd=Math.abs(d);
+  }
+  return bd;
+}
+
+// 由手指位置决定打的是哪个球的哪次撞击，时间和位置一起判
+function pressAt(cx,cy){
+  if(!playing) return;
+  const now=songTime();
+  // 两个球都离该敲的时刻太远 → 当没点过，不算 MISS 也不断连击
+  if(Math.min(nearestGap(0,now), nearestGap(1,now)) > IGNORE_T) return;
+  let best=null, bs=1e9;
+  for(let bi=0;bi<2;bi++){
+    const arr=notes[bi];
+    for(let i=Math.max(0,cursor[bi]-4); i<arr.length; i++){
+      const n=arr[i], dt=n.t-now;
+      if(dt>W_MISS) break;
+      if(n.judged) continue;
+      const d=Math.hypot(px(n.nx)-cx, py(n.ny)-cy);
+      if(d>R_HIT) continue;
+      const s = d/R_HIT + Math.abs(dt)/W_MISS;   // 空间、时间各占一半
+      if(s<bs){ bs=s; best={bi, n, bd:Math.abs(dt)}; }
+    }
+  }
+  if(best) commit(best.bi, best.n, best.bd);
+  else whiff(cx<W/2?0:1);
+}
+
+function sweepMisses(){
+  const now=songTime();
+  for(let bi=0;bi<2;bi++){
+    const arr=notes[bi];
+    while(cursor[bi]<arr.length && arr[cursor[bi]].t < now-W_MISS){
+      const n=arr[cursor[bi]];
+      if(!n.judged){ n.judged=true; n.res=0; cnt.m++; combo=0;
+        pops.push({bi,txt:'MISS',good:false,err:0,t:performance.now()}); }
+      cursor[bi]++;
+    }
+  }
+}
+
+//================== 渲染 ==================
+const cv=document.getElementById('cv'); cv.width=W; cv.height=H;
+const ctx=cv.getContext('2d');
+const px = v => BX+R + v*(BS-2*R);
+const py = v => BY+R + v*(BS-2*R);
+
+const quad=(pts,fill)=>{                       // 画一个填充四边形
+  ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.closePath(); ctx.fillStyle=fill; ctx.fill();
+};
+
+function drawBox(){
+  const ix=BX+DEPTH, iy=BY+DEPTH, is=BS-2*DEPTH;
+  // 后壁：一块有明暗的面，而不是近黑的空洞
+  const bg=ctx.createLinearGradient(0,iy,0,iy+is);
+  bg.addColorStop(0,'#0c1120'); bg.addColorStop(1,'#070a12');
+  ctx.fillStyle=bg; ctx.fillRect(ix,iy,is,is);
+
+  // 四个内壁。地板最亮、天花板最暗，靠明暗差把体积立起来
+  const face=(pts,c0,c1,vertical)=>{
+    const g=vertical
+      ? ctx.createLinearGradient(0,BY,0,BY+BS)
+      : ctx.createLinearGradient(BX,0,BX+BS,0);
+    g.addColorStop(0,c0); g.addColorStop(1,c1);
+    quad(pts,g);
+  };
+  face([[BX,BY],[BX+BS,BY],[ix+is,iy],[ix,iy]],           '#161d2f','#0d1220', true);   // 天花板
+  face([[BX,BY+BS],[BX+BS,BY+BS],[ix+is,iy+is],[ix,iy+is]],'#111726','#1f2840', true);  // 地板
+  face([[BX,BY],[BX,BY+BS],[ix,iy+is],[ix,iy]],           '#1a2338','#0f1524', false);  // 左壁
+  face([[BX+BS,BY],[BX+BS,BY+BS],[ix+is,iy+is],[ix+is,iy]],'#0f1524','#1a2338', false); // 右壁
+
+  // 两舱色调只铺在后壁上，不盖侧壁 —— 盖住的话景深会被压平
+  const tint=(x0,x1,col)=>{
+    const g=ctx.createLinearGradient(0,iy,0,iy+is);
+    g.addColorStop(0,col+'00'); g.addColorStop(1,col+hex(0.085));
+    ctx.fillStyle=g; ctx.fillRect(x0,iy,x1-x0,is);
+  };
+  tint(ix, ix+is/2, CY);
+  tint(ix+is/2, ix+is, OG);
+}
+
+// 中隔：把盒子分成左右两舱，青球住左、橙球住右
+function drawDivider(now){
+  const cx=BX+BS/2, ix=BX+DEPTH, iy=BY+DEPTH, is=BS-2*DEPTH;
+  const wHalf=(px(0.5+DIV_D)-px(0.5-DIV_D))/2 - R;   // 墙面到中线的距离（球心间距减去球半径）
+  // 隔墙在后壁上的截面
+  quad([[ix+is/2-wHalf*0.75,iy],[ix+is/2+wHalf*0.75,iy],
+        [ix+is/2+wHalf*0.75,iy+is],[ix+is/2-wHalf*0.75,iy+is]], '#0d121e');
+  // 隔墙的两个侧面（透视收缩）
+  for(const sgn of [-1,1])
+    quad([[cx+sgn*wHalf,BY],[ix+is/2+sgn*wHalf*0.75,iy],
+          [ix+is/2+sgn*wHalf*0.75,iy+is],[cx+sgn*wHalf,BY+BS]], '#161d30');
+
+  // 中隔保持为完整实心板，不再播放开门动画。
+  const slab=ctx.createLinearGradient(cx-wHalf,0,cx+wHalf,0);
+  slab.addColorStop(0,'#2a3450'); slab.addColorStop(0.5,'#1a2235'); slab.addColorStop(1,'#2a3450');
+  ctx.fillStyle=slab; ctx.fillRect(cx-wHalf,BY,wHalf*2,BS);
+}
+
+function flashWall(side, col, w){
+  const g=ctx.createLinearGradient(
+    side==='L'?BX:side==='R'?BX+BS:BX, side==='T'?BY:side==='B'?BY+BS:BY,
+    side==='L'?BX+w:side==='R'?BX+BS-w:BX, side==='T'?BY+w:side==='B'?BY+BS-w:BY);
+  g.addColorStop(0,col); g.addColorStop(1,col+'00');
+  ctx.fillStyle=g;
+  if(side==='L') ctx.fillRect(BX,BY,w,BS);
+  else if(side==='R') ctx.fillRect(BX+BS-w,BY,w,BS);
+  else if(side==='T') ctx.fillRect(BX,BY,BS,w);
+  else ctx.fillRect(BX,BY+BS-w,BS,w);
+}
+
+// 一次命中的撞墙动效。PERFECT 比 GREAT 更亮更宽；MISS 根本不会走到这里。
+function impactFlash(nx,ny,col,a,w){
+  ctx.save(); ctx.globalAlpha=Math.min(1,a);
+  if(nx<0.02) flashWall('L',col,w);
+  else if(nx>0.98) flashWall('R',col,w);
+  else if(Math.abs(Math.abs(nx-0.5)-DIV_D)<0.02){        // 撞中隔的某一面
+    const fx=px(nx), sgn=nx<0.5?-1:1;
+    const g=ctx.createLinearGradient(fx+sgn*4,0,fx-sgn*(w*0.6),0);
+    g.addColorStop(0,col); g.addColorStop(1,col+'00');
+    ctx.fillStyle=g;
+    ctx.fillRect(Math.min(fx+sgn*4, fx-sgn*(w*0.6)), BY, w*0.6+4, BS);
+  }
+  if(ny<0.02) flashWall('T',col,w); else if(ny>0.98) flashWall('B',col,w);
+  ctx.restore();
+}
+
+function draw(){
+  ctx.fillStyle='#07080d'; ctx.fillRect(0,0,W,H);
+  drawBox();
+  const now = playing? songTime() : 0;
+  const nowP = performance.now();
+  drawDivider(now);
+
+  if(playing){
+    const si=secAt(now), sec=SECTIONS[si];
+
+    // 撞墙动效：只有命中才有。PERFECT 亮而宽，GREAT 收一档。
+    flashes=flashes.filter(f=>nowP-f.t<230);
+    for(const f of flashes){
+      const p=1-(nowP-f.t)/230;
+      const perfect = f.res===2;
+      impactFlash(f.nx, f.ny, f.bi?OG:CY, p*(perfect?0.52:0.32), perfect?74:50);
+    }
+
+    // 撞击点上的收缩圆盘。盘缩到球那么大的那一刻，就是该点的时刻。
+    for(let bi=0;bi<2;bi++){
+      const col=bi?OG:CY;
+      const arr=notes[bi];
+      for(let i=cursor[bi]; i<arr.length; i++){
+        const n=arr[i], dt=n.t-now;
+        if(dt>LEAD) break;
+        if(dt<0||n.judged) continue;
+        const k=dt/LEAD, X=px(n.nx), Y=py(n.ny), rr=R+k*(R_HIT-R);
+        ctx.fillStyle=col+hex(0.055+(1-k)*0.145);          // 半透明盘，从大缩到球那么大
+        ctx.beginPath(); ctx.arc(X,Y,rr,0,7); ctx.fill();
+        // 普通音符跟随球色呼吸；双押统一用白光，让两手同时按的提示一眼可见。
+        const glowCol=n.double?'#ffffff':col;
+        const pulse=0.88+Math.sin(nowP*0.012)*0.12;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(X,Y,rr+7,0,7);
+        ctx.strokeStyle=glowCol+hex((0.42+(1-k)*0.36)*pulse);
+        ctx.lineWidth=2.5; ctx.shadowColor=glowCol; ctx.shadowBlur=12;
+        ctx.stroke(); ctx.restore();
+      }
+    }
+
+    for(let bi=0;bi<2;bi++){
+      const col=bi?OG:CY;
+      const [bx,by]=ballPos(bi,now);
+      const X=px(bx), Y=py(by);
+
+      // 轨迹：从球当前位置到下一次撞墙点，使用半透明的圆头虚点。
+      if(showTraj){
+        const th=nextWallHit(bi,now);
+        const [nx,ny]=ballPos(bi,th);
+        const ex=px(nx), ey=py(ny);
+        const k=Math.max(0,Math.min(1,(th-now)/LEAD));
+        const guideAlpha=0.10+(1-k)*0.18;
+        ctx.save();
+        ctx.beginPath(); ctx.moveTo(X,Y); ctx.lineTo(ex,ey);
+        ctx.strokeStyle=col+hex(guideAlpha); ctx.lineWidth=3.2; ctx.lineCap='round';
+        ctx.setLineDash([0.1,11]); ctx.stroke();
+        ctx.restore();
+      }
+
+      // 后壁上的投影（景深）
+      const k=(BS-2*DEPTH)/BS;
+      ctx.beginPath();
+      ctx.arc(BX+DEPTH+(X-BX)*k, BY+DEPTH+(Y-BY)*k, R*k*0.85, 0, 7);
+      ctx.fillStyle=col+'1e'; ctx.fill();
+
+      // 球：双色实心，暗的那半随滚动转，转动感靠面而不是靠一根线
+      const spin=bx*(BS/R)*(bi?-1:1);
+      ctx.save(); ctx.translate(X,Y); ctx.rotate(spin);
+      ctx.shadowColor=col; ctx.shadowBlur=26;
+      ctx.beginPath(); ctx.arc(0,0,R,0,7); ctx.fillStyle=col; ctx.fill();
+      ctx.shadowBlur=0;
+      ctx.beginPath(); ctx.arc(0,0,R,0,Math.PI); ctx.closePath();
+      ctx.fillStyle='#07080d55'; ctx.fill();
+      ctx.beginPath(); ctx.arc(-R*0.3,-R*0.3,R*0.4,0,7);   // 高光
+      ctx.fillStyle='#ffffff30'; ctx.fill();
+      ctx.restore();
+    }
+
+    // 段落名 + 周期
+    ctx.textAlign='center'; ctx.font=`10px ${FONT}`; ctx.fillStyle='#39435a';
+    const pf=p=>p[1]?`${p[0]}:${p[1]}`:`${p[0]}:roll`;
+    ctx.fillText(`${sec.n.toUpperCase()}    ${pf(sec.a)}  /  ${pf(sec.b)}`, W/2, BY-16);
+  }
+
+  // 判定弹字
+  pops=pops.filter(p=>nowP-p.t<420);
+  for(const p of pops){
+    if(!p.txt) continue;
+    const a=1-(nowP-p.t)/420, x=p.bi? W*0.72 : W*0.28, y=BY+BS+46;
+    const col=p.good?(p.bi?OG:CY):'#9c4a4a';
+    ctx.textAlign='center'; ctx.font=`600 14px ${FONT}`;
+    const w=Math.max(78, ctx.measureText(p.txt).width+26);
+    ctx.fillStyle=col+hex(a*0.18);                       // 底色块
+    ctx.beginPath(); ctx.roundRect(x-w/2, y-15, w, p.good?38:24, 7); ctx.fill();
+    ctx.fillStyle=col+hex(a);
+    ctx.fillText(p.txt, x, y);
+    if(p.good){ ctx.font=`10px ${FONT}`; ctx.fillStyle='#8b97ad'+hex(a*0.9);
+      ctx.fillText(`${p.err>0?'+':''}${(p.err*1000).toFixed(0)}ms`, x, y+16); }
+  }
+
+  ctx.textAlign='center'; ctx.font=`11px ${FONT}`; ctx.fillStyle='#4a5568';
+  ctx.fillText('点球撞墙的那个点 · 盘缩到球那么大时按下', W/2, H-34);
+
+  // HUD：坐在一块实心面板上
+  const hg=ctx.createLinearGradient(0,0,0,114);
+  hg.addColorStop(0,'#111726'); hg.addColorStop(1,'#0b0f1a');
+  ctx.fillStyle=hg; ctx.fillRect(0,0,W,114);
+
+  ctx.textAlign='left'; ctx.font=`11px ${FONT}`; ctx.fillStyle='#7b879e';
+  ctx.fillText('SCORE '+String(score).padStart(7,'0'), 14, 26);
+  const tot=cnt.p+cnt.g+cnt.m;
+  const acc=tot? ((cnt.p+cnt.g*0.65)/tot*100):100;
+  ctx.fillText(`ACC ${acc.toFixed(2)}%   P${cnt.p} G${cnt.g} M${cnt.m}`, 14, 44);
+  const mean=errs.length? errs.reduce((a,b)=>a+b,0)/errs.length*1000 : 0;
+  ctx.fillText(`偏移 ${(latency*1000).toFixed(0)}ms   平均误差 ${mean>0?'+':''}${mean.toFixed(0)}ms`, 14, 62);
+
+  if(playing){                                   // 屏内按钮：实心色块，无描边
+    for(const z of ZONES){
+      const on = z.id==='j'&&showTraj;
+      ctx.fillStyle = on? CY : '#222b3f';
+      ctx.beginPath(); ctx.roundRect(z.x,z.y,z.w,z.h,7); ctx.fill();
+      ctx.textAlign='center'; ctx.font=`11px ${FONT}`;
+      ctx.fillStyle = on? '#0b0f1a' : '#8b97ad';
+      ctx.fillText(z.t, z.x+z.w/2, z.y+z.h/2+4);
+    }
+  }
+  ctx.textAlign='right'; ctx.font=`600 26px ${FONT}`; ctx.fillStyle=combo>0?'#dbe3f0':'#2a3348';
+  ctx.fillText(combo, W-14, 40);
+  ctx.font=`10px ${FONT}`; ctx.fillStyle='#6b7690';
+  ctx.fillText('COMBO  max '+maxCombo, W-14, 58);
+  if(playing){
+    ctx.fillStyle='#4a5568';
+    ctx.fillText(fmt(songTime())+' / '+fmt(DUR), W-14, 76);
+    ctx.fillStyle='#161d2b'; ctx.fillRect(0,H-5,W,5);          // 进度条也做成一条实心带
+    const w=W*Math.min(1,songTime()/DUR);
+    const pg=ctx.createLinearGradient(0,0,W,0);
+    pg.addColorStop(0,CY); pg.addColorStop(1,OG);
+    ctx.fillStyle=pg; ctx.fillRect(0,H-5,w,5);
+  }
+
+  requestAnimationFrame(draw);
+}
+const hex=a=>Math.max(0,Math.min(255,Math.round(a*255))).toString(16).padStart(2,'0');
+const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+
+//================== 输入 ==================
+addEventListener('keydown',e=>{
+  if(e.repeat) return;
+  const k=e.key.toLowerCase();
+  if(k==='['){ latency-=0.005; }
+  else if(k===']'){ latency+=0.005; }
+  else if(k==='t'){ showTraj=!showTraj; }
+  else if(e.key==='Escape'){ stop(); }
+});
+// 手机上没有键盘，把校准/轨迹/退出做成屏内可点区域
+const ZONES=[
+  {id:'m',  x: 14, y:74, w:34, h:30, t:'−'},
+  {id:'p',  x: 52, y:74, w:34, h:30, t:'+'},
+  {id:'a',  x: 90, y:74, w:54, h:30, t:'自动'},
+  {id:'j',  x:148, y:74, w:54, h:30, t:'轨迹'},
+  {id:'x',  x:W-62,y:74, w:48, h:30, t:'退出'},
+];
+function zoneHit(id){
+  if(id==='m') latency-=0.005;
+  else if(id==='p') latency+=0.005;
+  else if(id==='a'){                    // 用实测平均误差一键补偿
+    if(errs.length>=8){
+      latency -= errs.reduce((a,b)=>a+b,0)/errs.length;
+      errs=[];
+      pops.push({bi:0,txt:'CALIBRATED',good:true,err:0,t:performance.now()});
+    }
+  }
+  else if(id==='j') showTraj=!showTraj;
+  else if(id==='x') stop();
+}
+
+// 挂在 window 上：手机上画布两侧的黑边也要能按
+addEventListener('pointerdown',e=>{
+  if(!playing) return;                 // 菜单期间不拦，别挡住按钮
+  e.preventDefault();
+  const r=cv.getBoundingClientRect();
+  const cx=(e.clientX-r.left)*(W/r.width), cy=(e.clientY-r.top)*(H/r.height);
+  for(const z of ZONES){
+    if(cx>=z.x&&cx<=z.x+z.w&&cy>=z.y&&cy<=z.y+z.h){ zoneHit(z.id); return; }
+  }
+  const pad=34;                        // 盒子以外的点当误触忽略，不判 MISS
+  if(cx>=BX-pad&&cx<=BX+BS+pad&&cy>=BY-pad&&cy<=BY+BS+pad) pressAt(cx,cy);
+},{passive:false});
+addEventListener('contextmenu',e=>{ if(playing) e.preventDefault(); });
+
+//================== 启动 / 停止 ==================
+function stop(){
+  if(!playing){ document.getElementById('ui').style.display='flex'; return; }
+  playing=false;
+  if(src){ try{src.stop();}catch(_){} src=null; }
+  showResult();
+}
+function toMenu(){
+  document.getElementById('result').style.display='none';
+  document.getElementById('ui').style.display='flex';
+}
+function showResult(){
+  const tot=cnt.p+cnt.g+cnt.m;
+  if(!tot){ toMenu(); return; }                 // 一个判定都没有就别硬凑结算
+  const acc=(cnt.p+cnt.g*0.65)/tot*100;
+  const rank = acc>=97?'S+' : acc>=93?'S' : acc>=87?'A' : acc>=78?'B' : acc>=66?'C' : 'D';
+  const mean = errs.length? errs.reduce((a,b)=>a+b,0)/errs.length*1000 : 0;
+  const sd = errs.length>1
+    ? Math.sqrt(errs.reduce((a,b)=>a+(b*1000-mean)**2,0)/errs.length) : 0;
+  const g=id=>document.getElementById(id);
+  g('r-sec').textContent = SONG.artist + ' — ' + SONG.title;
+  g('r-rank').textContent=rank;
+  g('r-score').textContent=String(score).padStart(7,'0');
+  g('r-acc').textContent=acc.toFixed(2)+'%   ·   '+tot+' 个音符';
+  g('r-p').textContent=cnt.p; g('r-g').textContent=cnt.g; g('r-m').textContent=cnt.m;
+  g('r-combo').textContent=maxCombo;
+  g('r-err').textContent=(mean>0?'+':'')+mean.toFixed(0)+'ms';
+  g('r-sd').textContent='±'+sd.toFixed(0)+'ms';
+  // 平均误差偏得多说明是延迟没校准，不是手不稳 —— 这个区别值得提醒
+  g('r-hint').textContent = Math.abs(mean)>28
+    ? `平均误差 ${mean>0?'偏晚':'偏早'} ${Math.abs(mean).toFixed(0)}ms，这更像是音频延迟没校准。`
+      + `游戏中点「自动」，或把偏移调 ${mean>0?'小':'大'} ${Math.abs(mean).toFixed(0)}ms。`
+    : (sd>45 ? '误差标准差偏大，节奏不稳定 —— 试试放慢一点的段落。' : '');
+  g('result').style.display='flex';
+}
+async function start(){
+  document.getElementById('result').style.display='none';
+  await loadAuthoredChart();
+  buildLegs(); buildSwaps(); notes=buildNotes(); cursor=[0,0];
+  score=0; combo=0; maxCombo=0; cnt={p:0,g:0,m:0}; errs=[]; pops=[]; flashes=[];
+  // 跳过起点之前的音符
+  for(let bi=0;bi<2;bi++){
+    while(cursor[bi]<notes[bi].length && notes[bi][cursor[bi]].t < startFrom){
+      notes[bi][cursor[bi]].judged=true; cursor[bi]++;
+    }
+  }
+  src=AC.createBufferSource(); src.buffer=buf; src.connect(master);
+  audioT0=AC.currentTime+0.25;
+  src.start(audioT0, startFrom);
+  playing=true;
+  document.getElementById('ui').style.display='none';
+}
+
+setInterval(()=>{ if(playing){ sweepMisses(); if(songTime()>DUR-0.2) stop(); } },20);
+
+document.getElementById('r-again').onclick=()=>{ AC.resume(); start().catch(err=>console.warn('谱面载入失败：',err)); };
+document.getElementById('r-menu').onclick=toMenu;
+
+//================== 选歌 ==================
+const BUFS={};                                  // 每首歌的解码缓存
+const songBox=document.getElementById('songs');
+
+function renderSongs(){
+  songBox.innerHTML='';
+  SONGS.forEach(s=>{
+    const d=document.createElement('div');
+    d.className='song'+(s.id===SONG.id?' on':'');
+    d.innerHTML=`<div><div class="t">${s.title}</div><div class="a">${s.artist}</div></div>`
+              + `<div class="meta">${s.bpm} BPM<br>双手挑战</div>`;
+    d.onclick=()=>pickSong(s);
+    songBox.appendChild(d);
+  });
+}
+async function pickSong(s){
+  useSong(s); startFrom=SECTIONS[0].t;
+  renderSongs();
+  const go=document.getElementById('go'), note=document.getElementById('note');
+  if(BUFS[s.id]){ buf=BUFS[s.id]; go.disabled=false; go.textContent='开 始 挑 战';
+                  note.textContent='准备就绪 · 追上第一拍'; return; }
+  buf=null; go.disabled=true; go.textContent='准 备 中…';
+  try{
+    note.textContent='下载音频…';
+    const ab=await (await fetch(s.file)).arrayBuffer();
+    note.textContent=`解码中…（${(ab.byteLength/1048576).toFixed(1)}MB）`;
+    const b=await AC.decodeAudioData(ab);
+    BUFS[s.id]=b;
+    if(SONG.id!==s.id) return;                  // 解码期间用户又换了歌
+    buf=b; note.textContent='准备就绪 · 追上第一拍';
+    go.disabled=false; go.textContent='开 始 挑 战';
+    document.getElementById('diag').textContent=audioStatus();
+  }catch(err){
+    note.textContent='加载失败: '+err.message;
+  }
+}
+
+//================== 自适应尺寸 ==================
+// 后备缓冲按 CSS 尺寸 × 设备像素比来开，再把绘图坐标系缩放回 430×780 的设计空间。
+// 不这么做的话手机上等于把 430px 宽的画面拉到 3 倍屏上，文字必糊。
+function fit(){
+  const s=Math.min(innerWidth/W, innerHeight/H);
+  const cssW=W*s, cssH=H*s;
+  const dpr=PERFECT_RECORDING?2:Math.min(window.devicePixelRatio||1, 3);
+  cv.style.width=cssW+'px'; cv.style.height=cssH+'px';
+  cv.width =Math.round(cssW*dpr);
+  cv.height=Math.round(cssH*dpr);
+  ctx.setTransform(cv.width/W, 0, 0, cv.height/H, 0, 0);   // 改 width 会重置状态，必须在这之后设
+}
+addEventListener('resize',fit);
+addEventListener('orientationchange',()=>setTimeout(fit,120));
+fit();
+
+//================== 加载 ==================
+// iOS Safari 默认让 Web Audio 跟随静音拨片。16.4+ 可以用 AudioSession 绕过。
+function claimPlaybackSession(){
+  try{
+    if(navigator.audioSession) { navigator.audioSession.type='playback'; return 'playback'; }
+  }catch(_){}
+  return null;
+}
+// iOS 要求解锁必须同步发生在手势里，await 之后就晚了
+function unlock(){
+  claimPlaybackSession();
+  AC.resume();
+  try{
+    const s=AC.createBufferSource();
+    s.buffer=AC.createBuffer(1,1,AC.sampleRate);
+    s.connect(AC.destination); s.start(0);
+  }catch(_){}
+}
+function audioStatus(){
+  return `${AC?AC.state:'无'} · ${AC?AC.sampleRate:'-'}Hz`
+       + ` · audioSession ${navigator.audioSession?'支持':'不支持'}`
+       + (AC && AC.outputLatency!=null ? ` · 输出延迟 ${(AC.outputLatency*1000).toFixed(0)}ms` : '');
+}
+
+let perfectRecorder=null,perfectTimer=null,perfectStopTimer=null;
+async function startPerfectCapture(){
+  if(!PERFECT_RECORDING||!buf||perfectRecorder?.state==='recording')return;
+  await start();
+  const stream=cv.captureStream(60);
+  for(const track of recordingDest.stream.getAudioTracks())stream.addTrack(track);
+  const mime=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']
+    .find(type=>MediaRecorder.isTypeSupported(type))||'';
+  const chunks=[];
+  perfectRecorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:5000000,audioBitsPerSecond:160000});
+  document.documentElement.dataset.recording='active';
+  perfectRecorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+  perfectRecorder.onerror=e=>{document.documentElement.dataset.recording='error';console.error('录屏失败',e.error)};
+  perfectRecorder.onstop=async()=>{
+    clearInterval(perfectTimer); clearTimeout(perfectStopTimer);
+    const blob=new Blob(chunks,{type:perfectRecorder.mimeType||'video/webm'});
+    try{
+      const response=await fetch('/api/recording/perfect',{method:'POST',headers:{'Content-Type':blob.type},body:blob});
+      const result=await response.json();
+      if(!response.ok||!result.ok)throw Error(result.error||'保存失败');
+      document.documentElement.dataset.recording='saved';
+      document.documentElement.dataset.recordingBytes=String(result.bytes);
+      document.documentElement.dataset.perfectCount=String(cnt.p);
+      document.documentElement.dataset.greatCount=String(cnt.g);
+      document.documentElement.dataset.missCount=String(cnt.m);
+    }catch(err){document.documentElement.dataset.recording='error';console.error('录屏保存失败',err)}
+  };
+  perfectRecorder.start(1000);
+  perfectTimer=setInterval(()=>{
+    if(!playing)return;
+    const now=songTime();
+    for(let bi=0;bi<2;bi++)for(const n of notes[bi])if(!n.judged&&n.t<=now+0.012)commit(bi,n,0,false);
+  },4);
+  perfectStopTimer=setTimeout(()=>{
+    if(perfectRecorder?.state==='recording')perfectRecorder.stop();
+  },Math.ceil((DUR-startFrom+1.2)*1000));
+}
+
+(async()=>{
+  const go=document.getElementById('go'), note=document.getElementById('note');
+  const diag=document.getElementById('diag');
+
+  try{
+    AC=new (window.AudioContext||window.webkitAudioContext)();
+    master=AC.createGain(); master.gain.value=1.0; master.connect(AC.destination);
+    if(PERFECT_RECORDING){recordingDest=AC.createMediaStreamDestination();master.connect(recordingDest)}
+    diag.textContent=audioStatus();
+    go.onclick=()=>{                       // 全同步，不要 await
+      if(!buf) return;
+      unlock();
+      const run=()=>PERFECT_RECORDING?startPerfectCapture():start();
+      if(AC.state==='running') run().catch(err=>{ note.textContent='谱面载入失败: '+err.message; });
+      else AC.resume().then(()=>run().catch(err=>{ note.textContent='谱面载入失败: '+err.message; }), ()=>{ note.textContent='音频上下文无法启动'; });
+    };
+    renderSongs();
+    await pickSong(SONGS[0]);
+    if(PERFECT_RECORDING){go.textContent='录制全 PERFECT';note.textContent='内部录制模式 · 点击后自动演示并保存'}
+  }catch(err){
+    note.textContent='加载失败: '+err.message;
+    diag.textContent=audioStatus();
+  }
+})();
+draw();
+</script>
+</body>
+</html>
