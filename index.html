@@ -52,7 +52,6 @@
   .rgrid b{font-size:20px;font-family:Georgia,"Iowan Old Style","Source Han Serif SC","Noto Serif CJK SC","Songti SC",STSong,serif;font-weight:500;color:#c9d2e4;}
   .rgrid span{font-size:9.5px;letter-spacing:.14em;color:#4a5364;font-family:Georgia,"Iowan Old Style","Source Han Serif SC","Noto Serif CJK SC","Songti SC",STSong,serif;}
   .bad{color:#c86a6a}
-  #r-hint{margin-top:20px;font-size:11.5px;color:#5a6478;max-width:380px;line-height:1.8;}
   #r-again{padding:14px 36px;border:0;color:#07080d;border-radius:30px;font-size:14px;
     cursor:pointer;letter-spacing:.16em;background:linear-gradient(100deg,#4fd6e8,#7ee2c8);}
   #r-again:hover{filter:brightness(1.12);}
@@ -76,7 +75,6 @@
     <div><b id="r-err">0ms</b><span>平均误差</span></div>
     <div><b id="r-sd">0ms</b><span>误差标准差</span></div>
   </div>
-  <div id="r-hint"></div>
   <div style="display:flex;gap:10px;margin-top:26px">
     <button id="r-again">再 来 一 次</button>
     <button id="r-menu" class="ghost">返回菜单</button>
@@ -787,11 +785,6 @@ function showResult(){
   g('r-combo').textContent=maxCombo;
   g('r-err').textContent=(mean>0?'+':'')+mean.toFixed(0)+'ms';
   g('r-sd').textContent='±'+sd.toFixed(0)+'ms';
-  // 平均误差偏得多说明是延迟没校准，不是手不稳 —— 这个区别值得提醒
-  g('r-hint').textContent = Math.abs(mean)>28
-    ? `平均误差 ${mean>0?'偏晚':'偏早'} ${Math.abs(mean).toFixed(0)}ms，这更像是音频延迟没校准。`
-      + `游戏中点「自动」，或把偏移调 ${mean>0?'小':'大'} ${Math.abs(mean).toFixed(0)}ms。`
-    : (sd>45 ? '误差标准差偏大，节奏不稳定 —— 试试放慢一点的段落。' : '');
   g('result').style.display='flex';
 }
 async function start(){
