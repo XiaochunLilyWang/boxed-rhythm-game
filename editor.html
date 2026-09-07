@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BOXED · 谱面工作台</title>
+<style>
+  :root{--bg:#07080d;--panel:#111624;--panel2:#171e30;--ink:#d8e0ee;--muted:#6f7b93;
+    --line:#29334a;--cy:#4fd6e8;--og:#f0913f;--bad:#e06767}
+  *{box-sizing:border-box} html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);
+    font:14px/1.5 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  body{padding:20px}.app{max-width:1500px;margin:auto}.top{display:flex;align-items:flex-end;gap:18px;margin-bottom:14px}
+  h1{margin:0;font:500 25px Georgia,serif;letter-spacing:.12em}.tag{color:var(--muted);font-size:12px}
+  .status{margin-left:auto;color:var(--muted);font-size:12px}.status.dirty{color:#e6bd72}
+  button,select,input{font:inherit;color:var(--ink);background:#222b40;border:0;border-radius:7px;padding:8px 11px}
+  button{cursor:pointer}button:hover{filter:brightness(1.15)}button.primary{background:var(--cy);color:#081015;font-weight:700}
+  button.danger{background:#3a2028;color:#ef9caa}button:disabled{opacity:.35;cursor:default}
+  input[type=number]{width:105px}input[type=range]{padding:0;width:160px;accent-color:var(--cy)}
+  .toolbar,.inspect{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--panel);padding:10px;border-radius:10px}
+  .toolbar .sep{width:1px;height:26px;background:var(--line);margin:0 3px}.time{font-variant-numeric:tabular-nums;min-width:102px;text-align:center}
+  .seekrow{display:flex;align-items:center;gap:10px;margin-top:7px;padding:8px 12px;background:var(--panel);border-radius:10px;color:var(--muted);font-size:11px}
+  #seek{flex:1;width:auto;padding:0;accent-color:var(--cy);cursor:ew-resize;touch-action:none}
+  #viewSeek{flex:1;width:auto;padding:0;accent-color:#8794ad;cursor:ew-resize;touch-action:none}
+  .timeline-wrap{margin-top:10px;background:var(--panel);border-radius:10px;overflow:hidden;position:relative}
+  #timeline{display:block;width:100%;height:300px;touch-action:none}.hint{position:absolute;right:12px;top:9px;color:#566179;font-size:11px;pointer-events:none}
+  .main{display:grid;grid-template-columns:minmax(460px,1fr) 360px;gap:10px;margin-top:10px}
+  .stage{background:var(--panel);border-radius:10px;min-height:570px;display:grid;place-items:center;padding:18px}
+  #box{width:min(100%,520px);aspect-ratio:1;display:block;touch-action:none}
+  .side{display:flex;flex-direction:column;gap:10px}.card{background:var(--panel);border-radius:10px;padding:15px}
+  .card h2{font-size:12px;letter-spacing:.14em;color:var(--muted);margin:0 0 12px}.field{display:grid;grid-template-columns:78px 1fr;align-items:center;gap:9px;margin:9px 0}
+  .field label{color:var(--muted);font-size:12px}.field input,.field select{width:100%}.row{display:flex;gap:7px;flex-wrap:wrap}
+  .fillline{display:grid;grid-template-columns:42px 1fr;align-items:center;gap:8px;margin:8px 0}.fillline>span{font-size:12px;font-weight:700}.fillline .row{gap:5px}.fillline button{padding:7px 8px}.fillline.cy>span{color:var(--cy)}.fillline.og>span{color:var(--og)}
+  .legend{display:grid;grid-template-columns:12px 1fr;gap:9px;margin:8px 0;color:var(--muted);font-size:12px}.dot{width:9px;height:9px;border-radius:50%;margin-top:5px}
+  .warn{color:#e6bd72;font-size:12px;min-height:38px}.small{font-size:11px;color:#566179}.io{display:none}
+  @media(max-width:900px){body{padding:10px}.main{grid-template-columns:1fr}.stage{min-height:auto}.top{align-items:flex-start}.status{margin-left:0}.top{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+<main class="app">
+  <div class="top"><div><h1>BOXED · 谱面工作台</h1><div class="tag">设计者工具 · 不出现在玩家界面</div></div><div class="status"><span id="count"></span> · <span id="status">自动谱初稿</span></div></div>
+  <div class="toolbar">
+    <button id="play" class="primary">▶ 播放</button><button id="stop">■</button><span id="clock" class="time">0:00.000</span>
+    <span class="sep"></span><label>吸附 <select id="snap"><option value="0">自由</option><option value="1">1 拍</option><option value="2">1/2 拍</option><option value="3">1/3 拍</option><option value="4" selected>1/4 拍</option><option value="8">1/8 拍</option><option value="16">1/16 拍</option></select></label>
+    <label>视野 <select id="zoom"><option value="0">全曲</option><option value="32">32 小节</option><option value="16">16 小节</option><option value="8" selected>8 小节</option><option value="4">4 小节</option></select></label>
+    <button id="follow">跟随：开</button><button id="trajectory">轨迹：开</button><button id="hitSound">打击音：开</button><button id="testCy">试听青</button><button id="testOg">试听橙</button><span class="sep"></span>
+    <button id="undo">撤销</button><button id="redo">重做</button><button id="del" class="danger">删除音符</button>
+  </div>
+  <div class="seekrow"><span>全曲进度</span><input id="seek" type="range" min="0" max="130.74" step="0.001" value="0"><span id="duration">2:10.740</span></div>
+  <div class="timeline-wrap"><canvas id="timeline"></canvas><div class="hint">拖动音符改时间 · 点击空白处移动播放头 · 滚轮横移</div></div>
+  <div class="seekrow"><span>时间轴窗口</span><input id="viewSeek" type="range" min="0" max="1" step="0.001" value="0"><span id="viewLabel">第 1 小节起</span></div>
+  <div class="main">
+    <section class="stage"><canvas id="box" width="620" height="620"></canvas></section>
+    <aside class="side">
+      <div class="card"><h2>节拍网格</h2>
+        <div class="field"><label>BPM</label><input id="bpm" type="number" min="20" max="400" step="0.001"></div>
+        <div class="field"><label>第 1 小节起点（秒）</label><input id="offset" type="number" min="0" step="0.001"></div>
+        <div class="field"><label>结束小节</label><input id="endMeasure" type="number" min="1" step="1"></div>
+        <div class="row"><button id="offsetNow">用当前播放头设为第 1 小节</button></div>
+        <div class="row" style="margin-top:8px"><button id="applyEnd">应用结束小节并截断</button></div>
+        <div class="row" style="margin-top:8px"><button id="regenerate" class="primary">按当前网格重新生成自动谱</button></div>
+        <p class="small">时间轴按 4/4 拍显示。应用结束小节会删除其后的音符并缩短游戏时长，但不修改原始 MP3；操作支持撤销。</p>
+      </div>
+      <div class="card"><h2>当前小节快速铺音</h2>
+        <div id="measureStatus" class="small" style="margin-bottom:9px">播放头位于第 1 小节</div>
+        <div class="fillline cy"><span>青球</span><div class="row"><button id="fillCyQuarter">四分</button><button id="fillCyEighth">八分</button><button id="fillCyTriplet">三连</button><button id="fillCySixteenth">十六分</button></div></div>
+        <div class="fillline og"><span>橙球</span><div class="row"><button id="fillOgQuarter">四分</button><button id="fillOgEighth">八分</button><button id="fillOgTriplet">三连</button><button id="fillOgSixteenth">十六分</button></div></div>
+        <div class="row" style="margin-top:10px"><button id="generatePaths" class="primary">按当前音符生成轨迹</button><button id="keepInChambers">取消所有跨舱</button></div>
+        <p class="small">生成轨迹时，31–32 小节的三连音采用左右镜像动作；青球保持左舱、橙球保持右舱，密集音符和双押会控制移动距离。</p>
+      </div>
+      <div class="card"><h2>选中音符</h2>
+        <div class="field"><label>ID</label><span id="nid">未选择</span></div>
+        <div class="field"><label>球</label><select id="ball"><option value="0">青球 · 左手</option><option value="1">橙球 · 右手</option></select></div>
+        <div class="field"><label>时间（秒）</label><input id="ntime" type="number" min="0" step="0.001"></div>
+        <div class="field"><label>墙面</label><select id="wall"><option value="L">左外墙</option><option value="DL">中隔左面</option><option value="DR">中隔右面</option><option value="R">右外墙</option><option value="T">天花板</option><option value="B">地板</option></select></div>
+        <div class="field"><label>沿墙位置</label><input id="pos" type="range" min="0" max="1" step="0.001"></div>
+        <div class="field"><label>精确值</label><input id="posnum" type="number" min="0" max="1" step="0.001"></div>
+        <div id="warn" class="warn"></div>
+        <div class="row"><button id="add0">＋ 青球音符</button><button id="add1">＋ 橙球音符</button></div>
+      </div>
+      <div class="card"><h2>谱面文件</h2>
+        <div class="row"><button id="save" class="primary">保存并共享谱面</button><button id="export">导出 JSON</button><button id="import">导入</button><input id="file" class="io" type="file" accept="application/json"></div>
+        <div class="field"><label>后段起点</label><input id="tailAfter" type="number" min="0" step="1" value="35"></div>
+        <div class="row"><button id="simplifyTail">该小节之后按 1 拍简化</button></div>
+        <div class="row" style="margin-top:8px"><button id="simplify">轻度简化谱面</button><button id="clearAll" class="danger">清空所有音符</button><button id="reset" class="danger">恢复自动谱</button></div>
+        <p class="small">“之后按 1 拍简化”会保留指定小节及之前的内容，把后段吸附到整数拍且每拍最多一个音符。GitHub 版本保存到当前浏览器；需要分享或提交谱面时请导出 JSON。</p>
+      </div>
+      <div class="card"><h2>使用方式</h2>
+        <div class="legend"><i class="dot" style="background:var(--cy)"></i><span>青/橙短线是音符；亮白框表示当前选中。</span></div>
+        <div class="legend"><i class="dot" style="background:#8591aa"></i><span>时间轴上拖动可修正采音偏差；Delete 删除过采。</span></div>
+        <div class="legend"><i class="dot" style="background:#e6bd72"></i><span>用“＋音符”补漏采，再在盒子中沿墙拖动实际落点。</span></div>
+        <div class="legend"><i class="dot" style="background:#fff"></i><span>彩色虚线预示播放头后的轨迹；白线显示选中音符影响的前后两段。F 添加青球，J 添加橙球。</span></div>
+      </div>
+    </aside>
+  </div>
+  <audio id="audio" src="audio/enchanted-love.mp3" preload="auto"></audio>
+</main>
+<script src="editor.js"></script>
+</body>
+</html>
